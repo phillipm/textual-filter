@@ -1,0 +1,29 @@
+<project>
+
+  <target name="clean">
+    <delete dir="build"/>
+  </target>
+
+  <target name="compile">
+    <mkdir dir="build/classes"/>
+    <javac srcdir="src" destdir="build/classes" debug="true" debuglevel="lines,vars,source"/>
+  </target>
+
+  <target name="jar">
+    <mkdir dir="build/jar"/>
+    <jar destfile="build/jar/GenerativePoetry.jar" basedir="build/classes">
+      <manifest>
+        <attribute name="Main-Class" value="GenerativePoetry"/>
+      </manifest>
+    </jar>
+  </target>
+
+  <target name="run">
+    <java jar="build/jar/GenerativePoetry.jar" fork="true">
+      <jvmarg line="-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=9009" />
+      <arg value="${arg0}"/>
+      <arg value="${arg1}"/>
+    </java>
+  </target>
+
+</project>
