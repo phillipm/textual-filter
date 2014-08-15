@@ -1,8 +1,20 @@
 import java.io.*;
+import javax.swing.SwingUtilities;
+import javax.swing.*;
 
 public class GenerativePoetry {
 
   public static void main(String[] args) {
+    //Schedule a job for the event dispatch thread:
+    //creating and showing this application's GUI.
+    SwingUtilities.invokeLater(new Runnable() {
+      public void run() {
+        //Turn off metal's use of bold fonts
+        UIManager.put("swing.boldMetal", Boolean.FALSE);
+        Gui.createAndShowGUI();
+      }
+    });
+    /*
     System.out.println(args.length);
     for (String arg : args) {
       System.out.format("%s, ", arg);
@@ -24,5 +36,6 @@ public class GenerativePoetry {
     } catch (IOException e) {
       System.out.println("Problem reading or writing" + args[0] + ".txt/bmp");
     }
+    */
   }
 }

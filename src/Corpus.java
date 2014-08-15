@@ -18,15 +18,24 @@ public class Corpus {
   private int colorGradient;
   private String[] words;
   private String textFilename;
-  private String imageFilename;
+  private String origImageFilename;
+  private String modImageFilename;
   private BufferedImage image;
   private HashMap<String, Integer> wordHistogram = new HashMap<String, Integer>();
   private HashMap<String, Integer> wordToPixelMap = new HashMap<String, Integer>();
 
+  public Corpus() {
+  }
+
   // create a corpus from a text file
   public Corpus(String filename) {
+    load(filename);
+  }
+
+  public void load(String filename) {
     this.textFilename = filename + ".txt";
-    this.imageFilename = filename + ".bmp";
+    this.origImageFilename = filename + ".bmp";
+    this.modImageFilename = filename + "_filtered.bmp";
 
     try {
       openText();
@@ -97,13 +106,13 @@ public class Corpus {
     }
 
     // write image
-    File outputfile = new File(imageFilename);
+    File outputfile = new File(origImageFilename);
     ImageIO.write(image, "bmp", outputfile);
   }
 
   // map a bitmap image to text using the word-to-pixel map
   public String imageToText() throws IOException {
-    File outputfile = new File(imageFilename);
+    File outputfile = new File(modImageFilename);
     BufferedImage loadedImage = ImageIO.read(outputfile);
 
     StringBuffer result = new StringBuffer();
