@@ -30,6 +30,7 @@ class ImagePanel extends JPanel {
     public void loadImage (String filename) {
        try {
           image = ImageIO.read(new File(filename));
+          repaint();
        } catch (IOException ex) {
             // handle exception...
        }
@@ -43,6 +44,7 @@ class ImagePanel extends JPanel {
 }
 
 public class Gui extends JPanel implements ActionListener {
+  private static final String DEFAULT_FILE_FIELD = "Choose a file to open or provide a new filename:";
   private JButton openButton;
   private JButton generateImageButton;
   private JButton interpretImageButton;
@@ -57,7 +59,7 @@ public class Gui extends JPanel implements ActionListener {
   private ImagePanel modImagePanel;
   private JTextArea modTextArea;
 
-  private JLabel fileLabel;
+  private JTextField fileField;
 
   private Corpus corpus;
 
@@ -79,8 +81,8 @@ public class Gui extends JPanel implements ActionListener {
   private void initComponents() {
     origTextArea = new JTextArea();
     modTextArea = new JTextArea();
-    fileLabel = new JLabel();
-    fileLabel.setText("Choose a file to open or enter text:");
+    fileField = new JTextField();
+    fileField.setText(DEFAULT_FILE_FIELD);
 
     //Create a file chooser
     fc = new JFileChooser();
@@ -90,7 +92,7 @@ public class Gui extends JPanel implements ActionListener {
 
     //For layout purposes, put the buttons in a separate panel
     JPanel filePanel = new JPanel(); //use FlowLayout
-    filePanel.add(fileLabel);
+    filePanel.add(fileField);
     filePanel.add(openButton);
 
     origTextArea.setColumns(50);
@@ -143,13 +145,17 @@ public class Gui extends JPanel implements ActionListener {
           InputStream in = new FileInputStream(file.getAbsolutePath());
           origTextArea.read(new InputStreamReader(in), null);
 
-          fileLabel.setText("file: " + file.getName());
+          fileField.setText(file.getAbsolutePath());
         } catch (IOException excep) {
           excep.printStackTrace();
         }
       }
-    } else if (e.getSource() == generateImageButton && file != null) {
+    } else if (e.getSource() == generateImageButton) {
+      if (file == null && fileField.getText() != DEFAULT_FILE_FIELD) {
+        file = new File(fileField.getText());
+      }
       String fileNameWithOutExt = file.getAbsolutePath().replaceFirst("[.][^.]+$", "");
+      // TODO: make load take a string and not a filename...
       corpus.load(fileNameWithOutExt);
       try {
         corpus.createImage();
