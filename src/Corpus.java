@@ -28,6 +28,8 @@ public class Corpus {
   // the corpus split by words
   private String[] words;
 
+  private String projectName;
+
   private String textFilename;
   private String origImageFilename;
   private String modImageFilename;
@@ -41,42 +43,35 @@ public class Corpus {
 
   // create a corpus from a text file
   public Corpus(String filename) {
-    load(filename);
+    loadFile(filename);
   }
 
-  public void load(String filename) {
-    this.textFilename = filename + ".txt";
-    this.origImageFilename = filename + ".bmp";
-    this.modImageFilename = filename + "_filtered.bmp";
+  public void loadText(String text) {
+    InputStream is = new ByteArrayInputStream(text.getBytes());
+    BufferedReader br = new BufferedReader(new InputStreamReader(is));
+    processText(br);
+  }
+
+  public void loadFile(String filename) {
+    textFilename = filename;
+    projectName = filename.replaceFirst("[.][^.]+$", "");
+    origImageFilename = projectName + ".bmp";
+    modImageFilename = projectName + "_filtered.bmp";
 
     try {
-      openText();
+      processText(new BufferedReader(new FileReader(textFilename)));
     } catch (IOException e) {
       System.out.format("couldn't open %s%n", textFilename);
     }
-
-    if (uniqueWords >= 256) {
-      // When dealing with more than 256 unique words,
-      // each color value (0-255) will be assigned a unique word.
-      // Hence, we don't need to map ranges of color values to a given word.
-      colorGradient = 1;
-    } else {
-      colorGradient = 256 / uniqueWords;
-    }
-    buildWordToPixelMap();
-
-    textImageSize = (int) Math.ceil(Math.sqrt((double) words.length));
-    imagePadding = textImageSize / 4;
-    imageSize = textImageSize + (2 * imagePadding);
   }
 
   // read in a text file as a corpus, building word histogram
-  private void openText() throws IOException {
+  private void processText(BufferedReader bufReader) {
     ArrayList<String> currentWords = new ArrayList<String>();
     Scanner s = null;
 
     try {
-      s = new Scanner(new BufferedReader(new FileReader(textFilename)));
+      s = new Scanner(bufReader);
 
       String word;
       while (s.hasNext()) {
@@ -100,13 +95,23 @@ public class Corpus {
     words = currentWords.toArray(new String[0]);
     uniqueWords = wordHistogram.size();
 
-    // compute the index mask, so that we don't try to interpret colors as indices if they lie out of the word range
+    // compute the index mask, so that we don't try to interpret colors as
+    // indices if they lie out of the word range
     int shiftedWordCount = uniqueWords;
     while (shiftedWordCount > 0) {
       indexMask = (indexMask << 1) | 0x1;
       shiftedWordCount = shiftedWordCount >> 1;
     }
+    System.out.format("unique words: %d%n", uniqueWords);
+    System.out.format("indexMask: %d%n", indexMask);
+
+    textImageSize = (int) Math.ceil(Math.sqrt((double) words.length));
+    imagePadding = textImageSize / 4;
+    imageSize = textImageSize + (2 * imagePadding);
+
+    buildWordToPixelMap();
   }
+
 
   // open an image for interpretation as a textual corpus
   public void openImage(String filename) throws IOException {
@@ -183,16 +188,23 @@ public class Corpus {
     Color color = new Color(rgb);
     int index = 0;
     if (colorGradient == 1) {
-      index = indexMask & ((color.getRed() << 16) | (color.getGreen() << 8) | color.getBlue());
+      index = indexMask & ((color.getRed() << 16) |
+                           (color.getGreen() << 8) |
+                           color.getBlue());
     } else {
-      index = color.getBlue() / colorGradient;
+      index = indexMask & (color.getBlue() / colorGradient);
     }
 
     Set<Map.Entry<String, Integer>> histoSet = wordHistogram.entrySet();
-    List<Map.Entry<String, Integer>> histoKVList = new ArrayList<Map.Entry<String, Integer>>(histoSet);
+    List<Map.Entry<String, Integer>> histoKVList =
+      new ArrayList<Map.Entry<String, Integer>>(histoSet);
     Collections.sort(histoKVList, new WordFreqEntryComparator());
 
-    return histoKVList.get(index).getKey();
+    if (index >= histoKVList.size()) {
+      return histoKVList.get(histoKVList.size()-1).getKey();
+    } else {
+      return histoKVList.get(index).getKey();
+    }
   }
 
   // return number of words in a corpus
@@ -208,6 +220,16 @@ public class Corpus {
 
   // create a mapping from words to pixels so that an image can be created
   public HashMap<String, Integer> buildWordToPixelMap() {
+    if (uniqueWords >= 256) {
+      // When dealing with more than 256 unique words,
+      // each color value (0-255) will be assigned a unique word.
+      // Hence, we don't need to map ranges of color values to a given word.
+      colorGradient = 1;
+    } else {
+      colorGradient = 256 / uniqueWords;
+    }
+
+    System.out.format("Colorgradient: %d%n", colorGradient);
     // return word to pixel color map if it has already been generated
     if (wordToPixelMap.size() > 0) {
       return wordToPixelMap;
@@ -215,21 +237,27 @@ public class Corpus {
 
     // build the map from words to pixel colors
     Set<Map.Entry<String, Integer>> histoSet = wordHistogram.entrySet();
-    List<Map.Entry<String, Integer>> histoKVList = new ArrayList<Map.Entry<String, Integer>>(histoSet);
+    List<Map.Entry<String, Integer>> histoKVList =
+      new ArrayList<Map.Entry<String, Integer>>(histoSet);
     Collections.sort(histoKVList, new WordFreqEntryComparator());
 
     // map each word to a distinct color
     if (colorGradient == 1) {
       // words won't fit in one hue (blue)
       for (int i = 0; i < uniqueWords; i++) {
-        // XXX: creating a new color out of bit shifting and then converting it to rgb might be a round about,
-        //      that is, "i" might be that exact value...
-        wordToPixelMap.put(histoKVList.get(i).getKey(), new Color((i >> 16) & 0x11111111, (i >> 8) & 0x11111111, i & 0x11111111).getRGB());
+        // XXX: creating a new color out of bit shifting and then converting it
+        // to rgb might be a round about, that is, "i" might be that exact value...
+        wordToPixelMap.put(histoKVList.get(i).getKey(),
+                           new Color((i >> 16) & 0x11111111,
+                                     (i >> 8) & 0x11111111,
+                                     i & 0x11111111).getRGB());
       }
     } else {
-      // words fit in one hue (blue), must use the cologradient to map color ranges to a specific word
+      // words fit in one hue (blue), must use the cologradient to map color ranges
+      // to a specific word
       for (int i = 0; i < uniqueWords; i++) {
-        wordToPixelMap.put(histoKVList.get(i).getKey(), new Color(0, 0, i * colorGradient).getRGB());
+        wordToPixelMap.put(histoKVList.get(i).getKey(),
+                           new Color(0, 0, i * colorGradient).getRGB());
       }
     }
 
@@ -253,5 +281,12 @@ public class Corpus {
       result.append(words[i] + " ");
     }
     return result.toString();
+  }
+
+  // set the projectName of the corpus
+  public void setName(String newName) {
+    projectName = newName;
+    origImageFilename = projectName + ".bmp";
+    modImageFilename = projectName + "_filtered.bmp";
   }
 }

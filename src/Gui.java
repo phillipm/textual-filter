@@ -1,4 +1,3 @@
-
 import java.awt.Color;
 import java.awt.event.ActionEvent;
 import java.io.IOException;
@@ -24,25 +23,6 @@ import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 import javax.swing.JPanel;
 
-class ImagePanel extends JPanel {
-    private BufferedImage image;
-
-    public void loadImage (String filename) {
-       try {
-          image = ImageIO.read(new File(filename));
-          repaint();
-       } catch (IOException ex) {
-            // handle exception...
-       }
-    }
-
-    @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        g.drawImage(image, 0, 0, 256, 256, null);
-    }
-}
-
 public class Gui extends JPanel implements ActionListener {
   private static final String DEFAULT_FILE_FIELD = "Choose a file to open or provide a new filename:";
   private JButton openButton;
@@ -59,7 +39,8 @@ public class Gui extends JPanel implements ActionListener {
   private ImagePanel modImagePanel;
   private JTextArea modTextArea;
 
-  private JTextField fileField;
+  private JTextField nameField;
+  private String projectName;
 
   private Corpus corpus;
 
@@ -81,18 +62,21 @@ public class Gui extends JPanel implements ActionListener {
   private void initComponents() {
     origTextArea = new JTextArea();
     modTextArea = new JTextArea();
-    fileField = new JTextField();
-    fileField.setText(DEFAULT_FILE_FIELD);
+    nameField = new JTextField();
+    nameField.setText("default_project");
+
+    JLabel nameLabel = new JLabel("Project name:", JLabel.LEFT);
 
     //Create a file chooser
     fc = new JFileChooser();
 
-    openButton = new JButton("Open a File...");
+    openButton = new JButton("Open text file...");
     openButton.addActionListener(this);
 
     //For layout purposes, put the buttons in a separate panel
     JPanel filePanel = new JPanel(); //use FlowLayout
-    filePanel.add(fileField);
+    filePanel.add(nameLabel);
+    filePanel.add(nameField);
     filePanel.add(openButton);
 
     origTextArea.setColumns(50);
@@ -136,6 +120,7 @@ public class Gui extends JPanel implements ActionListener {
   }
 
   public void actionPerformed(ActionEvent e) {
+    // choosing a text file to open
     if (e.getSource() == openButton) {
       int returnVal = fc.showOpenDialog(Gui.this);
 
@@ -144,28 +129,23 @@ public class Gui extends JPanel implements ActionListener {
         try {
           InputStream in = new FileInputStream(file.getAbsolutePath());
           origTextArea.read(new InputStreamReader(in), null);
-
-          fileField.setText(file.getAbsolutePath());
         } catch (IOException excep) {
           excep.printStackTrace();
         }
       }
     } else if (e.getSource() == generateImageButton) {
-      if (file == null && fileField.getText() != DEFAULT_FILE_FIELD) {
-        file = new File(fileField.getText());
-      }
-      String fileNameWithOutExt = file.getAbsolutePath().replaceFirst("[.][^.]+$", "");
-      // TODO: make load take a string and not a filename...
-      corpus.load(fileNameWithOutExt);
+      // generate image from content in text field
+      projectName = nameField.getText();
+      corpus.setName(projectName);
+      corpus.loadText(origTextArea.getText());
       try {
         corpus.createImage();
       } catch (IOException except) {
         System.out.println("failed to create image");
       }
-      origImagePanel.loadImage(fileNameWithOutExt + ".bmp");
-    } else if (e.getSource() == interpretImageButton && file != null) {
-      String fileNameWithOutExt = file.getAbsolutePath().replaceFirst("[.][^.]+$", "");
-      modImagePanel.loadImage(fileNameWithOutExt + "_filtered.bmp");
+      origImagePanel.loadImage(projectName + ".bmp");
+    } else if (e.getSource() == interpretImageButton) {
+      modImagePanel.loadImage(projectName + "_filtered.bmp");
       String filteredText;
       try {
         filteredText = corpus.imageToText();
@@ -194,3 +174,24 @@ public class Gui extends JPanel implements ActionListener {
     frame.setVisible(true);
   }
 }
+
+// For opening and drawing an image file onto the GUI
+class ImagePanel extends JPanel {
+    private BufferedImage image;
+
+    public void loadImage (String filename) {
+       try {
+          image = ImageIO.read(new File(filename));
+          repaint();
+       } catch (IOException ex) {
+            // handle exception...
+       }
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        g.drawImage(image, 0, 0, 256, 256, null);
+    }
+}
+
