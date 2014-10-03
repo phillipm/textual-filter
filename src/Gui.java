@@ -43,6 +43,7 @@ public class Gui extends JPanel implements ActionListener {
   private String projectName;
 
   private Corpus corpus;
+  private TextAsImage tai;
 
   final static Color  HILIT_COLOR = Color.LIGHT_GRAY;
   final static Color  ERROR_COLOR = Color.PINK;
@@ -52,7 +53,6 @@ public class Gui extends JPanel implements ActionListener {
     super(new BorderLayout());
     initComponents();
     corpus = new Corpus();
-
   }
 
   /** This method is called from within the constructor to
@@ -136,19 +136,24 @@ public class Gui extends JPanel implements ActionListener {
     } else if (e.getSource() == generateImageButton) {
       // generate image from content in text field
       projectName = nameField.getText();
-      corpus.setName(projectName);
       corpus.loadText(origTextArea.getText());
+      tai = new TextAsImage(corpus);
+      BufferedImage img = tai.createImage();
       try {
-        corpus.createImage();
-      } catch (IOException except) {
-        System.out.println("failed to create image");
+        // save image
+        File outputfile = new File(projectName+".bmp");
+        ImageIO.write(img, "bmp", outputfile);
+        // display image
+        origImagePanel.setImage(img);
+      } catch (IOException excep) {
+        System.out.println("unable to write " + projectName  + ".bmp");
       }
-      origImagePanel.loadImage(projectName + ".bmp");
     } else if (e.getSource() == interpretImageButton) {
-      modImagePanel.loadImage(projectName + "_filtered.bmp");
+      modImagePanel.loadImage(projectName+ "_filtered.bmp");
       String filteredText;
       try {
-        filteredText = corpus.imageToText();
+        Corpus c = tai.openImage(projectName+"_filtered.bmp");
+        filteredText = c.getOriginalText();
       } catch (IOException excep) {
         filteredText = "error loading filtered text";
       }
@@ -178,6 +183,11 @@ public class Gui extends JPanel implements ActionListener {
 // For opening and drawing an image file onto the GUI
 class ImagePanel extends JPanel {
     private BufferedImage image;
+
+    public void setImage(BufferedImage img) {
+      image = img;
+      repaint();
+    }
 
     public void loadImage (String filename) {
        try {
