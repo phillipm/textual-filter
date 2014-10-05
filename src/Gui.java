@@ -9,6 +9,8 @@ import javax.swing.event.*;
 import javax.swing.GroupLayout.*;
 import javax.swing.filechooser.*;
 import javax.swing.Box;
+import javax.swing.JCheckBox;
+
 import java.io.*;
 import java.awt.*;
 import java.awt.event.*;
@@ -28,6 +30,8 @@ public class Gui extends JPanel implements ActionListener {
   private JButton openButton;
   private JButton generateImageButton;
   private JButton interpretImageButton;
+  private JCheckBox addPadding;
+  private JCheckBox syncNewlines;
   private JFileChooser fc;
   private File file;
 
@@ -52,7 +56,6 @@ public class Gui extends JPanel implements ActionListener {
   public Gui() {
     super(new BorderLayout());
     initComponents();
-    corpus = new Corpus();
   }
 
   /** This method is called from within the constructor to
@@ -67,6 +70,9 @@ public class Gui extends JPanel implements ActionListener {
 
     JLabel nameLabel = new JLabel("Project name:", JLabel.LEFT);
 
+    syncNewlines = new JCheckBox("Sync vertical axis with newlines");
+    addPadding = new JCheckBox("Add padding to image");
+
     //Create a file chooser
     fc = new JFileChooser();
 
@@ -78,6 +84,8 @@ public class Gui extends JPanel implements ActionListener {
     filePanel.add(nameLabel);
     filePanel.add(nameField);
     filePanel.add(openButton);
+    filePanel.add(syncNewlines);
+    filePanel.add(addPadding);
 
     origTextArea.setColumns(50);
     origTextArea.setLineWrap(true);
@@ -136,8 +144,13 @@ public class Gui extends JPanel implements ActionListener {
     } else if (e.getSource() == generateImageButton) {
       // generate image from content in text field
       projectName = nameField.getText();
+      corpus = new Corpus();
       corpus.loadText(origTextArea.getText());
       tai = new TextAsImage(corpus);
+
+      tai.setToPad(addPadding.isSelected());
+      tai.setSyncNewlineAndVertical(syncNewlines.isSelected());
+
       BufferedImage img = tai.createImage();
       try {
         // save image
@@ -146,13 +159,13 @@ public class Gui extends JPanel implements ActionListener {
         // display image
         origImagePanel.setImage(img);
       } catch (IOException excep) {
-        System.out.println("unable to write " + projectName  + ".bmp");
+        System.out.println("unable to write " + projectName + ".bmp");
       }
     } else if (e.getSource() == interpretImageButton) {
-      modImagePanel.loadImage(projectName+ "_filtered.bmp");
+      modImagePanel.loadImage(projectName + "_filtered.bmp");
       String filteredText;
       try {
-        Corpus c = tai.openImage(projectName+"_filtered.bmp");
+        Corpus c = tai.openImage(projectName + "_filtered.bmp");
         filteredText = c.getOriginalText();
       } catch (IOException excep) {
         filteredText = "error loading filtered text";

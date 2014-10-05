@@ -48,12 +48,8 @@ public class TextAsImage {
   // The padding size, in terms of the image's width
   private float padRatio = 0.2f;
   // should each new vertical line of pixels correspond to a new line from the text?
-  private boolean syncNewlineAndVertical = false;
+  private boolean syncNewlineAndVertical = true;
 
- // TODO: eventually remove
-  private int imagePadding;
-  // dimensions of the image that actually represent text
-  private int textImageSize;
 
   /**
    * Image properties derived from text stats
@@ -62,8 +58,11 @@ public class TextAsImage {
   int colorGradient;
   // mask to eliminate parts of colors that don't have word mappings
   int indexMask;
-  // size of the image: textImageSize + (2 * imagePadding)
-  int imageSize = 100; // XXX
+  // size of the image: unpaddedImageSize + (2 * imagePadding)
+  int imageWidth;
+  int imageHeight;
+  private int verticalPadding;
+  private int horizontalPadding;
 
   /**
    * Sole constructor; loads corpus of text and builds word to color mapping
@@ -72,30 +71,27 @@ public class TextAsImage {
    */
   public TextAsImage(Corpus corpus) {
     this.corpus = corpus;
-    // TODO: create word->color mapping
 
-  // number of unique words in the corpus
-    int uniqueWords = this.corpus.uniqueWords();
+    // number of unique words in the corpus
+    int uniqueWordCount = this.corpus.uniqueWordCount();
+
     // compute the index mask, so that we don't try to interpret colors as
     // indices if they lie out of the word range
-    int shiftedWordCount = uniqueWords;
+    int shiftedWordCount = uniqueWordCount;
     while (shiftedWordCount > 0) {
       indexMask = (indexMask << 1) | 0x1;
       shiftedWordCount = shiftedWordCount >> 1;
     }
 
-    // TODO: this will change depending on image creation flags
-    textImageSize = (int) Math.ceil(Math.sqrt((double) this.corpus.length()));
-    imagePadding = textImageSize / 4;
-    imageSize = textImageSize + (2 * imagePadding);
+    calculateImageDimensions();
 
-    if (uniqueWords >= 256) {
-      // When dealing with more than 256 unique words,
-      // each color value (0-255) will be assigned a unique word.
+    if (uniqueWordCount > 255) {
+      // When dealing with more than 255 unique words,
+      // each color value will be assigned a unique word.
       // Hence, we don't need to map ranges of color values to a given word.
       colorGradient = 1;
     } else {
-      colorGradient = 256 / uniqueWords;
+      colorGradient = 256 / uniqueWordCount;
     }
 
     System.out.format("Colorgradient: %d%n", colorGradient);
@@ -109,18 +105,18 @@ public class TextAsImage {
     // map each word to a distinct color
     if (colorGradient == 1) {
       // words won't fit in one hue (blue)
-      for (int i = 0; i < uniqueWords; i++) {
+      for (int i = 0; i < uniqueWordCount; i++) {
         // XXX: creating a new color out of bit shifting and then converting it
         // to rgb might be a round about, that is, "i" might be that exact value...
         wordToColor.put(histoKVList.get(i).getKey(),
-            new Color((i >> 16) & 0x11111111,
-              (i >> 8) & 0x11111111,
-              i & 0x11111111).getRGB());
+            new Color((i >> 16) & 0xFF,
+              (i >> 8) & 0xFF,
+              i & 0xFF).getRGB());
       }
     } else {
       // words fit in one hue (blue), must use the cologradient to map color ranges
       // to a specific word
-      for (int i = 0; i < uniqueWords; i++) {
+      for (int i = 0; i < uniqueWordCount; i++) {
         wordToColor.put(histoKVList.get(i).getKey(),
             new Color(0, 0, i * colorGradient).getRGB());
       }
@@ -195,19 +191,74 @@ public class TextAsImage {
    * @since 0.1
    */
   public BufferedImage createImage() {
-    // TODO
-    BufferedImage image = new BufferedImage(imageSize, imageSize, BufferedImage.TYPE_INT_RGB);
+    BufferedImage image = new BufferedImage(imageWidth, imageHeight, BufferedImage.TYPE_INT_RGB);
 
-    // build image
     int wordIndex = 0;
     int pixelCount = 0;
-    for (int y = 0; y < imageSize; y++) {
-      for (int x = 0; x < imageSize; x++) {
-        if (x >= imagePadding &&
-            y >= imagePadding &&
-            x < (textImageSize + imagePadding) &&
-            y < (textImageSize + imagePadding)) {
-          wordIndex = ((x - imagePadding) + ((y - imagePadding) * textImageSize));
+    // build image; paying attention to padding and whether newlines are synced with the vertical axis
+    if (toPadImage && syncNewlineAndVertical) {
+      for (int y = 0; y < imageHeight; y++) {
+        boolean endOfLine = false;
+        for (int x = 0; x < imageWidth; x++) {
+          if (!endOfLine &&
+              (wordIndex >= this.corpus.length() || this.corpus.getWord(wordIndex).equals("\n"))) {
+            wordIndex++;
+            endOfLine = true;
+          }
+          if (!endOfLine &&
+              x >= horizontalPadding &&
+              y >= verticalPadding) {
+              image.setRGB(x, y, wordToColor.get(this.corpus.getWord(wordIndex++)));
+              pixelCount++;
+          } else {
+            // fill in the rest of the text image square with the default color
+            image.setRGB(x, y, DEFAULT_COLOR);
+          }
+        }
+      }
+    } else if (!toPadImage && syncNewlineAndVertical) {
+      for (int y = 0; y < imageHeight; y++) {
+        boolean endOfLine = false;
+        for (int x = 0; x < imageWidth; x++) {
+          if (!endOfLine &&
+              (wordIndex >= this.corpus.length() || this.corpus.getWord(wordIndex).equals("\n"))) {
+            wordIndex++;
+            endOfLine = true;
+          }
+          if (!endOfLine) {
+            image.setRGB(x, y, wordToColor.get(this.corpus.getWord(wordIndex)));
+            wordIndex++;
+            pixelCount++;
+          } else {
+            // fill in the rest of the text image square with the default color
+            image.setRGB(x, y, DEFAULT_COLOR);
+          }
+        }
+      }
+    } else if (toPadImage && !syncNewlineAndVertical) {
+      for (int y = 0; y < imageHeight; y++) {
+        for (int x = 0; x < imageWidth; x++) {
+          if (x >= horizontalPadding &&
+              y >= verticalPadding &&
+              x < (imageWidth - horizontalPadding) &&
+              y < (imageHeight - verticalPadding)) {
+            if (wordIndex < this.corpus.length()) {
+              image.setRGB(x, y, wordToColor.get(this.corpus.getWord(wordIndex++)));
+              pixelCount++;
+            } else {
+              // fill in the rest of the text image square with the default color
+              image.setRGB(x, y, DEFAULT_COLOR);
+            }
+          } else {
+            // fill in the image padding area with the default color
+            image.setRGB(x, y, DEFAULT_COLOR);
+          }
+        }
+      }
+    } else if (!toPadImage && !syncNewlineAndVertical) {
+      for (int y = 0; y < imageHeight; y++) {
+        for (int x = 0; x < imageWidth; x++) {
+          wordIndex = x + (y * imageWidth);
           if (wordIndex < this.corpus.length()) {
             image.setRGB(x, y, wordToColor.get(this.corpus.getWord(wordIndex)));
             pixelCount++;
@@ -215,11 +266,9 @@ public class TextAsImage {
             // fill in the rest of the text image square with the default color
             image.setRGB(x, y, DEFAULT_COLOR);
           }
-        } else {
-          // fill in the image padding area with the default color
-          image.setRGB(x, y, DEFAULT_COLOR);
         }
       }
+    } else {
     }
 
     System.out.format("drew %d pixels and there were %d words%n", pixelCount, this.corpus.length());
@@ -246,14 +295,72 @@ public class TextAsImage {
     StringBuffer result = new StringBuffer();
 
     // build image
-    for (int y = 0; y < loadedImage.getHeight(); y++) {
-      for (int x = 0; x < loadedImage.getWidth(); x++) {
-        result.append(colorToWord(loadedImage.getRGB(x, y)) + " ");
+    if (syncNewlineAndVertical) {
+      for (int y = 0; y < loadedImage.getHeight(); y++) {
+        for (int x = 0; x < loadedImage.getWidth(); x++) {
+          String word = colorToWord(loadedImage.getRGB(x, y));
+          // For now, we ignore newline colors if syncing newlines with vertical axis
+          if (!word.equals("\n")) {
+            result.append(word + " ");
+          }
+        }
+        result.append("\n");
+      }
+    } else {
+      for (int y = 0; y < loadedImage.getHeight(); y++) {
+        for (int x = 0; x < loadedImage.getWidth(); x++) {
+          result.append(colorToWord(loadedImage.getRGB(x, y)) + " ");
+        }
       }
     }
     Corpus c = new Corpus();
     c.loadText(result.toString());
     return c;
+  }
+
+  /**
+   * Setter for pad flag. Recalculates image dimensions.
+   *
+   * @param b         pad images created with neutral color
+   * @since 0.1
+   */
+  public void setToPad(boolean b) {
+    this.toPadImage = b;
+    calculateImageDimensions();
+  }
+
+  /**
+   * Setter for synchronizing newline vertical axis. Recalculates image dimensions.
+   *
+   * @param b         determines if image will use vertical axis for newlines or special color.
+   * @since 0.1
+   */
+  public void setSyncNewlineAndVertical(boolean b) {
+    this.syncNewlineAndVertical = b;
+    calculateImageDimensions();
+  }
+
+  /**
+   * Determine the size of an image based on flags and text size.
+   *
+   * @since 0.1
+   */
+  private void calculateImageDimensions() {
+    if (syncNewlineAndVertical) {
+      imageWidth = this.corpus.maxLineLength()+1;
+      imageHeight = this.corpus.newlineCount()+1;
+    } else {
+      imageWidth = (int) Math.ceil(Math.sqrt((double) this.corpus.length()));
+      imageHeight = imageWidth;
+    }
+
+    if (toPadImage) {
+      verticalPadding = (int) (imageHeight * padRatio);
+      horizontalPadding = (int) (imageWidth * padRatio);
+
+      imageWidth = imageWidth + (2 * horizontalPadding);
+      imageHeight = imageHeight + (2 * verticalPadding);
+    }
   }
 
   // TODO: move to some other file
