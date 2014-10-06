@@ -28,6 +28,7 @@ import javax.swing.JPanel;
 public class Gui extends JPanel implements ActionListener {
   private static final String DEFAULT_FILE_FIELD = "Choose a file to open or provide a new filename:";
   private JButton openButton;
+  private JButton statsButton;
   private JButton generateImageButton;
   private JButton interpretImageButton;
   private JCheckBox addPadding;
@@ -78,12 +79,15 @@ public class Gui extends JPanel implements ActionListener {
 
     openButton = new JButton("Open text file...");
     openButton.addActionListener(this);
+    statsButton = new JButton("Stats window");
+    statsButton.addActionListener(this);
 
     //For layout purposes, put the buttons in a separate panel
     JPanel filePanel = new JPanel(); //use FlowLayout
     filePanel.add(nameLabel);
     filePanel.add(nameField);
     filePanel.add(openButton);
+    filePanel.add(statsButton);
     filePanel.add(syncNewlines);
     filePanel.add(addPadding);
 
@@ -128,8 +132,12 @@ public class Gui extends JPanel implements ActionListener {
   }
 
   public void actionPerformed(ActionEvent e) {
-    // choosing a text file to open
-    if (e.getSource() == openButton) {
+    if (e.getSource() == statsButton) {
+      if (tai != null) {
+        new StatsGui().initUI(tai.wordEntries());
+      }
+    } else if (e.getSource() == openButton) {
+      // choosing a text file to open
       int returnVal = fc.showOpenDialog(Gui.this);
 
       if (returnVal == JFileChooser.APPROVE_OPTION) {
@@ -180,14 +188,14 @@ public class Gui extends JPanel implements ActionListener {
    * event dispatch thread.
    */
   public static void createAndShowGUI() {
-    //Create and set up the window.
-    JFrame frame = new JFrame("FileChooserDemo");
+    // Create and set up the window.
+    JFrame frame = new JFrame("Textual Filters");
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-    //Add content to the window.
+    // Add content to the window.
     frame.add(new Gui());
 
-    //Display the window.
+    // Display the window.
     frame.pack();
     frame.setVisible(true);
   }
@@ -217,4 +225,3 @@ class ImagePanel extends JPanel {
         g.drawImage(image, 0, 0, 256, 256, null);
     }
 }
-

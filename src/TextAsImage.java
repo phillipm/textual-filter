@@ -97,10 +97,7 @@ public class TextAsImage {
     System.out.format("Colorgradient: %d%n", colorGradient);
 
     // build the map from words to pixel colors
-    Set<Map.Entry<String, Integer>> histoSet = this.corpus.wordFrequency().entrySet();
-    List<Map.Entry<String, Integer>> histoKVList =
-      new ArrayList<Map.Entry<String, Integer>>(histoSet);
-    Collections.sort(histoKVList, new WordFreqEntryComparator());
+    List<Map.Entry<String, Integer>> histoKVList = getMapping();
 
     // map each word to a distinct color
     if (colorGradient == 1) {
@@ -144,16 +141,22 @@ public class TextAsImage {
       index = indexMask & (color.getBlue() / colorGradient);
     }
 
-    Set<Map.Entry<String, Integer>> histoSet = this.corpus.wordFrequency().entrySet();
-    List<Map.Entry<String, Integer>> histoKVList =
-      new ArrayList<Map.Entry<String, Integer>>(histoSet);
-    Collections.sort(histoKVList, new WordFreqEntryComparator());
+    // TODO: this shouldn't be generated every time!!!
+    List<Map.Entry<String, Integer>> histoKVList = getMapping();
 
     if (index >= histoKVList.size()) {
       return histoKVList.get(histoKVList.size()-1).getKey();
     } else {
       return histoKVList.get(index).getKey();
     }
+  }
+
+  private List<Map.Entry<String, Integer>> getMapping() {
+    Set<Map.Entry<String, Integer>> histoSet = this.corpus.wordFrequency().entrySet();
+    List<Map.Entry<String, Integer>> histoKVList =
+      new ArrayList<Map.Entry<String, Integer>>(histoSet);
+    Collections.sort(histoKVList, new WordFreqEntryComparator());
+    return histoKVList;
   }
 
   /**
@@ -361,6 +364,16 @@ public class TextAsImage {
       imageWidth = imageWidth + (2 * horizontalPadding);
       imageHeight = imageHeight + (2 * verticalPadding);
     }
+  }
+
+  public Word[] wordEntries() {
+    ArrayList<Word> currentWords = new ArrayList<Word>();
+    List<Map.Entry<String, Integer>> histoKVList = getMapping();
+    for (int i = 0; i < this.corpus.uniqueWordCount(); i++) {
+      String text = histoKVList.get(i).getKey();
+      currentWords.add(new Word(text, histoKVList.get(i).getValue(), new Color(wordToColor.get(text))));
+    }
+    return currentWords.toArray(new Word[0]);
   }
 
   // TODO: move to some other file
