@@ -1,3 +1,5 @@
+package net.quined.textual_filters;
+
 /**
  * Collect relevant information surrounding a word appearing in a body of text.
  */

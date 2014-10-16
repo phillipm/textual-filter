@@ -1,3 +1,5 @@
+package net.quined.textual_filters;
+
 /**
  * A Corpus of text is an object for organizing a piece of text.
  * It includes stats and accessors for the text.

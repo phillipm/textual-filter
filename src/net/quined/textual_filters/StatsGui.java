@@ -1,3 +1,5 @@
+package net.quined.textual_filters;
+
 // Lightly adapted source code from Guillaume Polet's solution
 // for the following Stack Overflow question:
 // https://stackoverflow.com/questions/15385114/jtable-color-row-and-cell-dynamically

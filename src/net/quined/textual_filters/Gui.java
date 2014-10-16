@@ -1,3 +1,5 @@
+package net.quined.textual_filters;
+
 import java.awt.Color;
 import java.awt.event.ActionEvent;
 import java.io.IOException;

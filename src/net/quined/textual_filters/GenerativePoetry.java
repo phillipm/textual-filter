@@ -1,3 +1,5 @@
+package net.quined.textual_filters;
+
 import java.io.*;
 import javax.swing.SwingUtilities;
 import javax.swing.*;

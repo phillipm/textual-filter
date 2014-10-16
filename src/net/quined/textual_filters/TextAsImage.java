@@ -1,3 +1,5 @@
+package net.quined.textual_filters;
+
 /**
  * Logic for interpreting a Corpus of text as an image.
  *
