@@ -87,30 +87,25 @@ public class Corpus {
 
       String word;
       while (lineScanner.hasNextLine()) {
-        int lineLength = 0;
+        int wordsOnLine = 0;
         Scanner wordScanner = new Scanner(lineScanner.nextLine());
         while (wordScanner.hasNext()) {
           word = wordScanner.next();
           currentWords.add(word);
-          lineLength++;
+          wordsOnLine++;
 
           // update word histogram
-          if (wordHistogram.containsKey(word)) {
-            wordHistogram.put(word, wordHistogram.get(word) + 1);
-          } else {
-            wordHistogram.put(word, 1);
-          }
+          addWordToHistogram(word);
         }
-        newlineCount++;
-        currentWords.add("\n");
-        if (wordHistogram.containsKey("\n")) {
-          wordHistogram.put("\n", wordHistogram.get("\n") + 1);
-        } else {
-          wordHistogram.put("\n", 1);
+        this.newlineCount++;
+        if (lineScanner.hasNextLine()) {
+          // add a newline and count as a word
+          wordsOnLine++;
+          currentWords.add("\n");
+          addWordToHistogram("\n");
         }
-
-        if (lineLength > this.longestLine) {
-          longestLine = lineLength;
+        if (wordsOnLine > this.longestLine) {
+          longestLine = wordsOnLine;
         }
       }
     } finally {
@@ -164,6 +159,21 @@ public class Corpus {
   }
 
   /**
+   * Add a word or increment word occurence in histogram
+   *
+   * @param word that occurs in corpus
+   * @since 0.1
+   */
+  private void addWordToHistogram(String word) {
+    if (wordHistogram.containsKey(word)) {
+      wordHistogram.put(word, wordHistogram.get(word) + 1);
+    } else {
+      wordHistogram.put(word, 1);
+    }
+  }
+
+
+  /**
    * Generate the String representation of the original corpus
    *
    * @return    the corpus' text as a String
@@ -172,8 +182,13 @@ public class Corpus {
   public String getOriginalText() {
     StringBuffer result = new StringBuffer();
 
-    for (int i = 0; i < words.length; i++) {
-      result.append(words[i] + " ");
+    result.append(words[0]);
+    for (int i = 1; i < words.length; i++) {
+      if (words[i-1] == "\n" || words[i] == "\n") {
+        result.append(words[i]);
+      } else {
+        result.append(" " + words[i]);
+      }
     }
     return result.toString();
   }
